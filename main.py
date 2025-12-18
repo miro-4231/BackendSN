@@ -9,6 +9,7 @@ app = FastAPI()
 class Post(BaseModel):
     title: str 
     content: str
+    published: Optional[bool] = True
     rating: Optional[int] = None
 
 my_posts = [{"title":"title of post 1", "content":"content of post 1", "id":1}, 
@@ -42,4 +43,26 @@ def create_posts(post:Post):
     post_dict["id"] = randint(0, 10**5)
     my_posts.append(post_dict)
     return {"data": post_dict}
+
+@app.put("/posts/{id}", status_code=status.HTTP_200_OK)
+def update_post(post:Post, id:int):
+    post_to_update = find_post(id)
+    if post_to_update :
+        for key, val in post.dict().items() :
+            post_to_update[key] = val
+        return Response(status_code=status.HTTP_200_OK)
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f'post with id: {id} not found.')
+
+@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(id:int):
+    post_to_delete = find_post(id) 
+    if post_to_delete:
+        my_posts.remove(post_to_delete)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f'post with id: {id} not found.')
+
 
