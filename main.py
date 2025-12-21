@@ -3,6 +3,9 @@ from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
 from random import randint
+import psycopg
+from psycopg import errors
+from psycopg.rows import dict_row
 
 app = FastAPI() 
 
@@ -11,6 +14,18 @@ class Post(BaseModel):
     content: str
     published: Optional[bool] = True
     rating: Optional[int] = None
+    
+    
+try:
+    conn = psycopg.connect(host = 'localhost', dbname= 'fastapi',
+                           user = 'postgres', password = '2003', connect_timeout=30, row_factory=dict_row)
+    cursor = conn.cursor()
+    print("Database connection was succefull!!")
+except Exception as error:
+    print("Connection to database Failed !!")
+    print("Error: ", error)
+    
+    
 
 my_posts = [{"title":"title of post 1", "content":"content of post 1", "id":1}, 
             {"title":"fav food", "content":"I like pizza", "id":2}]
@@ -23,46 +38,106 @@ def find_post(id:int):
 
 @app.get("/posts")
 async def root():
-    return {"data" : my_posts}
+    cursor.execute("""SELECT * FROM posts""")
+    data = cursor.fetchall()
+    return {"data" : data}
 
 @app.get("/posts/latest")
 def get_posts():
-    return {"data" : my_posts[-1]}
+    cursor.execute(  """SELECT * FROM posts 
+                        WHERE published = true 
+                        ORDER BY created_at DESC 
+                        LIMIT 1;""")
+    data = cursor.fetchall()
+    return {"data" : data}
 
 @app.get("/posts/{id}")
-def get_posts(id:int):
-    post = find_post(id)
-    if not post: 
+def get_post(id:int):
+    cursor.execute(  """SELECT * FROM posts 
+                        WHERE id = %s 
+                        LIMIT 1;""", [id])
+    data = cursor.fetchall()
+    if not data: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f'post with id: {id} not found.')
-    return {"data" : post}
+    return {"data" : data}
 
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 def create_posts(post:Post):
-    post_dict = post.dict()
-    post_dict["id"] = randint(0, 10**5)
-    my_posts.append(post_dict)
-    return {"data": post_dict}
+    try:
+        cursor.execute( """
+                    INSERT INTO posts (title, content, published)
+                    VALUES (%s, %s, %s) RETURNING *;
+                    """, [post.title, post.content, post.published])
+        new_post = cursor.fetchone()
+        conn.commit()
+        return new_post
+        
+    except errors.UniqueViolation:
+        conn.rollback()
+        raise HTTPException(status_code=409, detail="Post already exists")
+        
+    except errors.NotNullViolation as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail="Missing required field")
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 @app.put("/posts/{id}", status_code=status.HTTP_200_OK)
 def update_post(post:Post, id:int):
-    post_to_update = find_post(id)
-    if post_to_update :
-        for key, val in post.dict().items() :
-            post_to_update[key] = val
-        return Response(status_code=status.HTTP_200_OK)
-    else:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f'post with id: {id} not found.')
+    try:
+        cursor.execute("""
+            UPDATE posts 
+            SET title = %s, content = %s, published = %s
+            WHERE id = %s
+            RETURNING *;
+        """, (post.title, post.content, post.published, id))
+        
+        updated_post = cursor.fetchone()
+        
+        if updated_post is None:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        conn.commit()
+        return updated_post
+        
+    except HTTPException:
+        raise  # Let our 404 pass through
+        
+    except Exception as e:
+        conn.rollback()
+        # Log the real error for debugging
+        import logging
+        logging.error(f"Update failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update post")
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id:int):
-    post_to_delete = find_post(id) 
-    if post_to_delete:
-        my_posts.remove(post_to_delete)
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-    else:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f'post with id: {id} not found.')
+    try:
+        cursor.execute("""
+            DELETE FROM posts
+            WHERE id = %s
+            RETURNING *;
+        """, (id,))
+        
+        updated_post = cursor.fetchone()
+        
+        if updated_post is None:
+            raise HTTPException(status_code=404, detail="Post not found")
+        
+        conn.commit()
+        return updated_post
+        
+    except HTTPException:
+        raise  # Let our 404 pass through
+        
+    except Exception as e:
+        conn.rollback()
+        # Log the real error for debugging
+        import logging
+        logging.error(f"Update failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update post")
 
 
