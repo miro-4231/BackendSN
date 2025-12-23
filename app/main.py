@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, status, HTTPException
 from contextlib import asynccontextmanager
-from fastapi.params import Body
-from pydantic import BaseModel
-from typing import Optional
-from sqlmodel import Session, select, desc, update
-from app.db import *
+from sqlmodel import Session, SQLModel, select, desc, update
+from typing import List
+from app.db import engine
+import app.model as model
+import app.schemas as schemas
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,57 +14,53 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan) 
 
-class Post_api(BaseModel):
-    title: str 
-    content: str
-    published: Optional[bool] = True
     
 
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post_return])
 async def root():
     with Session(engine) as session:
-        statement = select(Posts)
+        statement = select(model.Posts)
         posts = session.exec(statement).all()
-    return {"data" : posts}
+    return posts
 
-@app.get("/posts/latest")
+@app.get("/posts/latest", response_model=schemas.Post_return)
 def get_posts():
     with Session(engine) as session:
-        statement = select(Posts).order_by(desc(Posts.created_at))
+        statement = select(model.Posts).order_by(desc(model.Posts.created_at))
         post_latest = session.exec(statement).first()
-    return {"data" : post_latest}
+    return post_latest
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.Post_return)
 def get_post(id:int):
     with Session(engine) as session:
-        statement = select(Posts).where(Posts.id == id)
+        statement = select(model.Posts).where(model.Posts.id == id)
         post = session.exec(statement).first()
 
     if not post: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f'post with id: {id} not found.')
-    return {"data" : post}
+    return post
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_posts(post:Post_api):
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post_return)
+def create_posts(post:schemas.Post):
     with Session(engine) as session:
-        new_post = Posts(title=post.title, content=post.content, published=post.published)
+        new_post = model.Posts(title=post.title, content=post.content, published=post.published)
         session.add(new_post)
         session.commit()
         session.refresh(new_post)
-    return {"data" : new_post}
+    return new_post
 
 
-@app.put("/posts/{id}", status_code=status.HTTP_200_OK)
-def update_post(post:Post_api, id:int):
+@app.put("/posts/{id}", status_code=status.HTTP_200_OK, response_model=schemas.Post_return)
+def update_post(post:schemas.Post, id:int):
     
     with Session(engine) as session:
-        target_post = session.get(Posts, id)
+        target_post = session.get(model.Posts, id)
         if not target_post:
             raise HTTPException(status_code=404, detail=f"post with id: {id} not found")
         statement = (
-            update(Posts)
-            .where(Posts.id == id)
+            update(model.Posts)
+            .where(model.Posts.id == id)
             .values(title=post.title, content=post.content, published=post.published)
         )
         session.exec(statement)
@@ -78,7 +74,7 @@ def update_post(post:Post_api, id:int):
 def delete_post(id:int):
     with Session(engine) as session:
         
-        statement = select(Posts).where(Posts.id == id)
+        statement = select(model.Posts).where(model.Posts.id == id)
         results = session.exec(statement)
         post_del = results.one()
         if not post_del:
