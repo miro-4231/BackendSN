@@ -5,7 +5,7 @@ from typing import List
 from app.db import engine
 import app.model as model
 import app.schemas as schemas
-from routers import post_route
+from routers import post_route, auth_route
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,5 +16,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan) 
 
 app.include_router(post_route.router)
+app.include_router(auth_route.router)
 
     

@@ -6,11 +6,11 @@ class Post_in(BaseModel):
     title: str 
     content: str
     published: Optional[bool] = True
-    
-    
+      
 class Post_out(Post_in):
     id: int
     created_at: datetime
+    
     
 class User_in(BaseModel):
     email: EmailStr 
@@ -20,3 +20,10 @@ class User_out(BaseModel):
     id: int 
     email: EmailStr
     created_at: datetime
+    
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: EmailStr | None = None

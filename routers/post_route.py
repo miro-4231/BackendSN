@@ -6,7 +6,7 @@ from typing import List
 from app.db import engine 
 
 
-router = APIRouter(prefix="/posts")
+router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
 
