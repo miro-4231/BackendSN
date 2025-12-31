@@ -1,8 +1,8 @@
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, status, HTTPException, Depends
 from sqlmodel import select, update, desc
 from sqlmodel import Session
-from app import schemas, model
-from typing import List 
+from app import schemas, model, oauth2
+from typing import List, Annotated
 from app.db import engine 
 
 
@@ -12,21 +12,21 @@ router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
 @router.get("/", response_model=List[schemas.Post_out])
-async def root():
+async def root(current_user: Annotated[schemas.User_in, Depends(oauth2.get_current_user)]):
     with Session(engine) as session:
         statement = select(model.Posts)
         posts = session.exec(statement).all()
     return posts
 
 @router.get("/latest", response_model=schemas.Post_out)
-def get_posts():
+async def get_posts(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)]):
     with Session(engine) as session:
         statement = select(model.Posts).order_by(desc(model.Posts.created_at))
         post_latest = session.exec(statement).first()
     return post_latest
 
 @router.get("/{id}", response_model=schemas.Post_out)
-def get_post(id:int):
+async def get_post(id:int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)]):
     with Session(engine) as session:
         statement = select(model.Posts).where(model.Posts.id == id)
         post = session.exec(statement).first()
@@ -37,7 +37,7 @@ def get_post(id:int):
     return post
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post_out)
-def create_posts(post:schemas.Post_in):
+async def create_posts(post:schemas.Post_in, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)]):
     with Session(engine) as session:
         new_post = model.Posts(title=post.title, content=post.content, published=post.published)
         session.add(new_post)
@@ -47,7 +47,7 @@ def create_posts(post:schemas.Post_in):
 
 
 @router.put("/{id}", status_code=status.HTTP_200_OK, response_model=schemas.Post_out)
-def update_post(post:schemas.Post_in, id:int):
+async def update_post(post:schemas.Post_in, id:int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)]):
     
     with Session(engine) as session:
         target_post = session.get(model.Posts, id)
@@ -66,7 +66,7 @@ def update_post(post:schemas.Post_in, id:int):
     return target_post
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id:int):
+async def delete_post(id:int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)]):
     with Session(engine) as session:
         
         statement = select(model.Posts).where(model.Posts.id == id)

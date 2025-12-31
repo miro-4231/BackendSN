@@ -17,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["Authentification"])
 
 
 @router.post("/register", response_model=schemas.User_out)
-async def new_user(user: schemas.User_in):
+async def new_user(user: schemas.User_new):
     with Session(engine) as session:
         # Check if user already exists
         existing_user = session.exec(select(model.Users).where(model.Users.email == user.email)).first()
@@ -28,7 +28,7 @@ async def new_user(user: schemas.User_in):
             )
         
         password_hash = utils.get_password_hash(user.password)
-        db_user = model.Users(email=user.email, password=password_hash) 
+        db_user = model.Users(username=user.username, email=user.email, password=password_hash) 
         session.add(db_user)
         session.commit()
         session.refresh(db_user)
