@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -9,11 +9,24 @@ class Post_in(BaseModel):
       
 class Post_out(Post_in):
     id: int
+    author_id: int
+    votes: int
     created_at: datetime
     
+class VoteCreate(BaseModel):
+    direction: int = Field(..., description="1 for Up, -1 for Down")
+    is_super: bool = False
+
+    @field_validator('direction')
+    @classmethod
+    def validate_direction(cls, v: int) -> int:
+        if v not in (1, -1):
+            raise ValueError('Direction must be 1 or -1')
+        return v
+
 class User_new(BaseModel):
     username: str = Field(max_length=18)
-    email: EmailStr = Field(max_length=36)
+    email: EmailStr = Field(max_length=36) 
     password: str = Field(max_length=24)
     
 class User_in(BaseModel):
@@ -28,6 +41,7 @@ class User_out(BaseModel):
     
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
 
 class TokenData(BaseModel):
