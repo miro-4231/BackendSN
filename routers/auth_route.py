@@ -15,7 +15,7 @@ router = APIRouter(prefix="/auth", tags=["Authentification"])
 @router.post("/register", response_model=schemas.User_out)
 async def new_user(user: schemas.User_new, session: Annotated[Session, Depends(utils.get_db)]):
     # Check if user already exists
-    existing_user = session.exec(select(model.Users).where(model.Users.email == user.email)).first()
+    existing_user = session.exec(select(model.Users).where(model.Users.username == user.username)).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

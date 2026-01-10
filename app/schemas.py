@@ -14,7 +14,7 @@ class User_in(BaseModel):
 class User_out(BaseModel):
     id: int 
     username: str = Field(max_length=18)
-    email: EmailStr = Field(max_length=36)
+    #email: EmailStr = Field(max_length=36)
     created_at: datetime
 
 class Post_in(BaseModel):

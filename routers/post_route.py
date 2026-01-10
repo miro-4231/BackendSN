@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status, HTTPException, Query, Depends
 from sqlmodel import select, update, desc
 from sqlmodel import Session
+from sqlalchemy.orm import joinedload
 from app import schemas, model, oauth2, utils
 from typing import List, Annotated
 
@@ -16,7 +17,8 @@ async def root(
     offset: int = Query(default=0, ge=0, description="Number of items to skip"),
     search: str = Query(default="", description="Search term")):
     
-    statement = select(model.Posts).filter(model.Posts.content.like("%" + search + "%")).offset(offset).limit(limit)
+    statement = select(model.Posts).filter(model.Posts.content.like("%" + search + "%"))\
+        .options(joinedload(model.Posts.author)).offset(offset).limit(limit)
     posts = session.exec(statement).all()
     return posts
 
@@ -53,7 +55,8 @@ async def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out,
     # Check if user already exists
     existing_user = session.exec(select(model.Users).where(model.Users.id == user_id)).first()
     if existing_user:
-        statement = select(model.Posts).where(model.Posts.author_id == user_id).offset(offset).limit(limit)
+        statement = select(model.Posts).where(model.Posts.author_id == user_id)\
+            .options(joinedload(model.Posts.author)).offset(offset).limit(limit)
         posts = session.exec(statement).all()
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
