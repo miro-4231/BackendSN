@@ -48,7 +48,7 @@ async def get_post_by_id(id: int, current_user: Annotated[schemas.User_out, Depe
     return post
 
 @router.get("/user/{user_id}", response_model=List[schemas.Post_out])
-def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
+async def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
                         session: Annotated[Session, Depends(utils.get_db)],
                         limit: int = Query(default=10, gt=0, le=100, description="Maximum number of items to return"),
                         offset: int = Query(default=0, ge=0, description="Number of items to skip")):

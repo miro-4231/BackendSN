@@ -37,7 +37,7 @@ class Users(SQLModel, table=True):
     )
 
     # The Python-side link back to the posts
-    posts: list[Posts] = Relationship(back_populates="users")
+    posts: list[Posts] = Relationship(back_populates="author")
     
 class Votes(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", primary_key=True)
