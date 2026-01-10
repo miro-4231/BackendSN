@@ -12,11 +12,14 @@ from app import utils
 import jwt
 from jwt.exceptions import InvalidTokenError
 import uuid
+import os
+from dotenv import load_dotenv
 
-
+# Load .env file
+load_dotenv()
 # to get a string like this run:
 # openssl rand -hex 32
-SECRET_KEY = "f49f6c1d244648d6e88b2be59e165125d3a4099ac580f94dccecb2fd8c69c46b"
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 
@@ -128,7 +131,6 @@ async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], se
     if refresh_token is None or refresh_token.user_id != int(id):
         raise credentials_exception 
     
-    # Revoke old refresh token for rotation
     db_token = session.exec(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti)).first()
     if db_token:
         db_token.is_revoked = True
