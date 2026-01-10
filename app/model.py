@@ -1,4 +1,4 @@
-from sqlmodel import Field, SQLModel, Index, SmallInteger, CheckConstraint
+from sqlmodel import Field, SQLModel, Index, SmallInteger, CheckConstraint, Relationship
 from datetime import datetime
 from sqlalchemy import func
 from pydantic import EmailStr
@@ -15,6 +15,9 @@ class Posts(SQLModel, table=True):
     )
     modified_at : datetime|None = Field(
         sa_column_kwargs={"onupdate": func.now()}, default=None)
+
+    # The Python-side link back to the user
+    author: Users = Relationship(back_populates="posts")
     
     __table_args__ = (Index("ix_posts_author_created", "author_id", "created_at"),)
     
@@ -32,6 +35,9 @@ class Users(SQLModel, table=True):
     created_at : datetime = Field(
         sa_column_kwargs={"server_default": func.now()}
     )
+
+    # The Python-side link back to the posts
+    posts: list[Posts] = Relationship(back_populates="users")
     
 class Votes(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", primary_key=True)
