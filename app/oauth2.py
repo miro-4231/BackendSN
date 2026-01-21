@@ -2,11 +2,12 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi import APIRouter, status, HTTPException, Depends
 from datetime import datetime, timedelta, timezone
 from sqlmodel import select, update, desc
-from sqlmodel import Session
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Annotated
 from pydantic import EmailStr
 from app import schemas, model
-from app.db import engine 
+from app.db import async_session_factory 
 from app import utils
 
 import jwt
@@ -27,21 +28,21 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token", refreshUrl="auth/refresh")
 
 
-def get_user_by_id(id: int, session: Session) -> model.Users:
-    statement = select(model.Users).where(model.Users.id == id)
-    user = session.exec(statement).first()
-    return user
+async def get_user_by_id(id: int, session: AsyncSession) -> model.Users:
+    return await session.get(model.Users, id)
 
-def get_user_by_username(username: str, session: Session) -> model.Users:
+async def get_user_by_username(username: str, session: AsyncSession) -> model.Users:
     statement = select(model.Users).where(model.Users.username == username)
-    user = session.exec(statement).first()
+    result = await session.execute(statement)
+    user = result.scalar_one_or_none()
     return user
 
-def check_refresh_token(token: str, jti: str, session: Session) -> model.RefreshTokens: 
+async def check_refresh_token(token: str, jti: str, session: AsyncSession) -> model.RefreshTokens: 
     statement = select(model.RefreshTokens)\
     .where(model.RefreshTokens.jti == jti)
     
-    refresh_token = session.exec(statement).first()
+    result = await session.execute(statement)
+    refresh_token = result.scalar_one_or_none()
     if refresh_token is None:
         return None
     elif refresh_token.is_revoked:
@@ -51,11 +52,11 @@ def check_refresh_token(token: str, jti: str, session: Session) -> model.Refresh
     return None
 
 
-def authenticate_user(id: int|str, password: str, session: Session): 
+async def authenticate_user(id: int|str, password: str, session: AsyncSession): 
     if isinstance(id, str):
-        user = get_user_by_username(id, session)
+        user = await get_user_by_username(id, session)
     elif isinstance(id, int):
-        user = get_user_by_id(id, session)
+        user = await get_user_by_id(id, session)
     else:
         return False 
     if not user:
@@ -83,10 +84,9 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
         expire = datetime.now(timezone.utc) + timedelta(days=30)
     to_encode.update({"exp": expire, "typ": "refresh", "jti": jti})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    print(encoded_jwt)
     return encoded_jwt, jti
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: Annotated[Session, Depends(utils.get_db)]):
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, 
         detail="Could not valid credentials",
@@ -102,12 +102,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], sessio
             raise credentials_exception
     except InvalidTokenError :
         raise credentials_exception
-    user = get_user_by_id(id, session)
+    user = await get_user_by_id(id, session)
     if user is None:
         raise credentials_exception 
     return user
 
-async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], session: Annotated[Session, Depends(utils.get_db)]) -> int:
+async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], session: Annotated[AsyncSession, Depends(utils.get_db)]) -> int:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, 
         detail="Could not validate credentials",
@@ -124,14 +124,16 @@ async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], se
             raise credentials_exception
     except InvalidTokenError as error:
         raise credentials_exception
-    refresh_token = check_refresh_token(token, jti, session)
+    refresh_token = await check_refresh_token(token, jti, session)
     if not refresh_token: 
-        session.delete(select(model.RefreshTokens).where(model.RefreshTokens.user_id == int(id)))
+        statement = delete(model.RefreshTokens).where(model.RefreshTokens.user_id == int(id))
+        await session.execute(statement)
+        await session.commit()
         raise credentials_exception
     if refresh_token is None or refresh_token.user_id != int(id):
         raise credentials_exception 
     
-    db_token = session.exec(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti)).first()
+    db_token = await session.execute(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti)).first()
     if db_token:
         db_token.is_revoked = True
         session.add(db_token)

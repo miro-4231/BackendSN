@@ -1,5 +1,6 @@
 from app.model import * 
 from sqlmodel import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from dotenv import load_dotenv
 import os
 
@@ -10,4 +11,11 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL") 
 
 # Create engine
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=True, pool_size=20, max_overflow=10)
+
+# expire_on_commit=False is CRITICAL for Async
+async_session_factory = async_sessionmaker(
+    bind=engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False
+)
