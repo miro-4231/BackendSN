@@ -1,6 +1,6 @@
 from pwdlib import PasswordHash
 from sqlmodel import delete
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import async_session_factory
 from datetime import datetime, timezone
 
@@ -13,7 +13,7 @@ def verify_password(plain_password, hashed_password):
     return password_hasher.verify(plain_password, hashed_password)
 
 async def get_db() -> AsyncSession:
-    with async_session_factory() as session:
+    async with async_session_factory() as session:
         yield session
 
 async def cleanup_revoked_tokens():
@@ -22,7 +22,7 @@ async def cleanup_revoked_tokens():
         async with session.begin():
             statement = delete(model.RefreshTokens)\
             .where(model.RefreshTokens.is_revoked == True)
-            await session.exec(statement)
+            await session.execute(statement)
 
 async def cleanup_expired_tokens():
     """Delete expired refresh tokens from database"""
@@ -31,5 +31,5 @@ async def cleanup_expired_tokens():
             statement = delete(model.RefreshTokens).where(
                 model.RefreshTokens.expires_at < datetime.now(timezone.utc)
             )
-            await session.exec(statement)
+            await session.execute(statement)
 

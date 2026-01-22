@@ -133,11 +133,12 @@ async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], se
     if refresh_token is None or refresh_token.user_id != int(id):
         raise credentials_exception 
     
-    db_token = await session.execute(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti)).first()
+    db_token = await session.execute(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti))
+    db_token = db_token.scalar_one_or_none()
     if db_token:
         db_token.is_revoked = True
         session.add(db_token)
-        session.commit()
+        await session.commit()
     
     return refresh_token.user_id
 

@@ -1,7 +1,11 @@
 from sqlmodel import Field, SQLModel, Index, SmallInteger, CheckConstraint, Relationship
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, Column, DateTime
 from pydantic import EmailStr
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .model import Posts, Users
 
 class Posts(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -11,13 +15,23 @@ class Posts(SQLModel, table=True):
     published: bool = True
     votes: int = Field(default=0)
     created_at : datetime = Field(
-        sa_column_kwargs={"server_default": func.now()}
+        sa_column=Column(
+            DateTime(timezone=True), 
+            server_default=func.now(), 
+            nullable=False
+        )
     )
     modified_at : datetime|None = Field(
-        sa_column_kwargs={"onupdate": func.now()}, default=None)
+        sa_column=Column(
+            DateTime(timezone=True), 
+            server_default=func.now(), 
+            onupdate=func.now()
+        ),
+        default=None
+    )
 
     # The Python-side link back to the user
-    author: Users = Relationship(back_populates="posts")
+    author: "Users" = Relationship(back_populates="posts")
     
     __table_args__ = (Index("ix_posts_author_created", "author_id", "created_at"),)
     
@@ -33,11 +47,12 @@ class Users(SQLModel, table=True):
     password: str = Field()
     super_vote_balance: int = Field(default=5)
     created_at : datetime = Field(
-        sa_column_kwargs={"server_default": func.now()}
-    )
+                sa_column=Column(DateTime(timezone=True),
+                server_default=func.now(),
+                nullable=False))
 
     # The Python-side link back to the posts
-    posts: list[Posts] = Relationship(back_populates="author")
+    posts: list["Posts"] = Relationship(back_populates="author")
     
 class Votes(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", primary_key=True)
@@ -45,19 +60,24 @@ class Votes(SQLModel, table=True):
     direction: int = Field(sa_type=SmallInteger)
     is_super: bool = Field(default=False)
     created_at : datetime = Field(
-        sa_column_kwargs={"server_default": func.now()}
-    )
+                sa_column=Column(DateTime(timezone=True),
+                server_default=func.now(),
+                nullable=False))
     
 class RefreshTokens(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     jti: str = Field( index=True)
     token_hash: str = Field(index=True)
-    expires_at: datetime = Field(index=True)
+    expires_at: datetime = Field(
+                sa_column=Column(DateTime(timezone=True),
+                server_default=func.now(),
+                nullable=False))
     is_revoked: bool = Field()
     created_at : datetime = Field(
-        sa_column_kwargs={"server_default": func.now()}
-    )
+                sa_column=Column(DateTime(timezone=True),
+                server_default=func.now(),
+                nullable=False))
 
 
 

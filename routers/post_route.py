@@ -27,7 +27,7 @@ async def root(
 async def get_latest_post(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
     statement = select(model.Posts).order_by(desc(model.Posts.created_at))
     post_latest = await session.execute(statement)
-    return post_latest.scalar_one_or_none()
+    return post_latest.scalars().first()
 
 @router.get("/me", response_model=List[schemas.Post_out])
 async def get_me_post(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)],
@@ -83,7 +83,7 @@ async def create_posts(post: schemas.Post_in, current_user: Annotated[schemas.Us
 
 
 @router.put("/{id}", status_code=status.HTTP_200_OK, response_model=schemas.Post_out)
-async def update_post(post: schemas.Post_in, id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[Session, Depends(utils.get_db)]):
+async def update_post(post: schemas.Post_in, id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
     target_post = await session.get(model.Posts, id)
     if not target_post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} not found")
