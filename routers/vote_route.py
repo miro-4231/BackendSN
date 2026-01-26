@@ -1,16 +1,15 @@
-from fastapi import APIRouter, status, HTTPException, Query, Depends
-from sqlmodel import select, update, desc
-from sqlmodel import Session
+from fastapi import APIRouter, status, HTTPException, Depends
+from sqlmodel import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas, model, oauth2, utils
-from typing import List, Annotated
+from typing import Annotated
 
 
 router = APIRouter(prefix="/vote", tags=["Voting"])
 
 SUPER_VOTE_MULTIPLIER = 10
 
-@router.post("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/{post_id}", status_code=status.HTTP_201_CREATED, response_model=schemas.Comment_out)
 async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
                     current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
                     session: Annotated[AsyncSession, Depends(utils.get_db)]):

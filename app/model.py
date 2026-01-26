@@ -5,7 +5,7 @@ from pydantic import EmailStr
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .model import Posts, Users
+    from .model import Posts, Users, Comments
 
 class Posts(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -14,6 +14,7 @@ class Posts(SQLModel, table=True):
     author_id: int = Field(foreign_key="users.id", index=True)
     published: bool = True
     votes: int = Field(default=0)
+    comments_count: int = Field(default=0)
     created_at : datetime = Field(
         sa_column=Column(
             DateTime(timezone=True), 
@@ -78,6 +79,39 @@ class RefreshTokens(SQLModel, table=True):
                 sa_column=Column(DateTime(timezone=True),
                 server_default=func.now(),
                 nullable=False))
+
+class Comments(SQLModel, table=True):
+    id: int|None = Field(default, None, primary_key=True)
+    content: str = Field(max_length=500)
+    user_id:str = Field(foreign_key="users.id", index=True)
+    post_id: int = Field(foreign_key="posts.id", index=True)
+    parent_id: int|None = Field(foreign_key="comments.id", index=True)
+    votes:int = Field(default=0)
+    is_deleted: bool = Field(default=False)
+    created_at : datetime = Field(
+                sa_column=Column(DateTime(timezone=True),
+                server_default=func.now(),
+                nullable=False))
+    modified_at : datetime|None = Field(
+        sa_column=Column(
+            DateTime(timezone=True), 
+            server_default=func.now(), 
+            onupdate=func.now()
+        ),
+        default=None
+    )
+
+    author: "Users" = Relationship(back_populates="comments")
+
+    replies: list["Comments"] = Relationship(
+        sa_relationship_kwargs={
+            "remote_side": 'Comments.id',
+            "cascade": "all, delete-orphan",
+            "order_by": "desc(Comments.votes), desc(Comments.created_at)"
+        }
+    )
+
+
 
 
 

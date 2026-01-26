@@ -7,7 +7,7 @@ from app.db import engine
 import app.utils as utils
 # import app.model as model
 # import app.schemas as schemas
-from routers import post_route, auth_route, vote_route
+from routers import post_route, auth_route, vote_route, comment_route
 
 scheduler = AsyncIOScheduler()
 
@@ -29,5 +29,6 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(post_route.router)
 app.include_router(auth_route.router)
 app.include_router(vote_route.router)
+app.include_router(comment_route.router)
 
     
