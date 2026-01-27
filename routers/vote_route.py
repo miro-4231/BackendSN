@@ -9,7 +9,7 @@ router = APIRouter(prefix="/vote", tags=["Voting"])
 
 SUPER_VOTE_MULTIPLIER = 10
 
-@router.post("/{post_id}", status_code=status.HTTP_201_CREATED, response_model=schemas.Comment_out)
+@router.post("/{post_id}", status_code=status.HTTP_201_CREATED)
 async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
                     current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
                     session: Annotated[AsyncSession, Depends(utils.get_db)]):
@@ -22,6 +22,7 @@ async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
             status_code=status.HTTP_404_NOT_FOUND, 
             detail=f"Post with id: {post_id} not found"
         )
+
     
     # Check if user has already voted for this post
     vote_target = await session.get(model.Votes, (current_user.id, post_id))

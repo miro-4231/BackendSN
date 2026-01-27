@@ -6,7 +6,7 @@ from typing import Annotated
 
 router = APIRouter(prefix="/posts", tags=["Comment"])
 
-@router.post("/{post_id}/comments", status_code=status.HTTP_201_CREATED, response_model=schemas.CommentOut)
+@router.post("/{post_id}/comment", status_code=status.HTTP_201_CREATED, response_model=schemas.Comment_out)
 async def create_comment(post_id: int, comment_in: schemas.Comment_in,
                         current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
                         session: Annotated[AsyncSession, Depends(utils.get_db)]):
@@ -22,11 +22,14 @@ async def create_comment(post_id: int, comment_in: schemas.Comment_in,
 
     if comment_in.parent_id:
         comment_target = await session.get(model.Comments, comment_in.parent_id)
+        
         if not comment_target:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, 
                 detail=f"Comment with id: {comment_in.parent_id} not found"
             )
+        
+        # await session.refresh(comment_target, ['replies', 'author'])
     
     # Update comment count
     await session.execute(
@@ -45,10 +48,13 @@ async def create_comment(post_id: int, comment_in: schemas.Comment_in,
     )
     session.add(new_comment)
     await session.commit()
-    await session.refresh(new_comment)
+    await session.refresh(new_comment, ['author'])#, 'replies'])
+    print('====================================================')
+    print(new_comment)
+    print('====================================================')
     return new_comment
 
-@router.put("/comments", status_code=status.HTTP_200_OK, response_model=schemas.CommentOut)
+@router.put("/comments", status_code=status.HTTP_200_OK, response_model=schemas.Comment_out)
 async def edit_comment( comment_in: schemas.Comment_edit,
                         current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
                         session: Annotated[AsyncSession, Depends(utils.get_db)]):

@@ -33,6 +33,7 @@ class Posts(SQLModel, table=True):
 
     # The Python-side link back to the user
     author: "Users" = Relationship(back_populates="posts")
+ 
     
     __table_args__ = (Index("ix_posts_author_created", "author_id", "created_at"),)
     
@@ -54,6 +55,7 @@ class Users(SQLModel, table=True):
 
     # The Python-side link back to the posts
     posts: list["Posts"] = Relationship(back_populates="author")
+    comments: list["Comments"] = Relationship(back_populates="author")
     
 class Votes(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", primary_key=True)
@@ -81,9 +83,9 @@ class RefreshTokens(SQLModel, table=True):
                 nullable=False))
 
 class Comments(SQLModel, table=True):
-    id: int|None = Field(default, None, primary_key=True)
+    id: int|None = Field(default=None, primary_key=True)
     content: str = Field(max_length=500)
-    user_id:str = Field(foreign_key="users.id", index=True)
+    user_id:int = Field(foreign_key="users.id", index=True)
     post_id: int = Field(foreign_key="posts.id", index=True)
     parent_id: int|None = Field(foreign_key="comments.id", index=True)
     votes:int = Field(default=0)
@@ -103,13 +105,13 @@ class Comments(SQLModel, table=True):
 
     author: "Users" = Relationship(back_populates="comments")
 
-    replies: list["Comments"] = Relationship(
-        sa_relationship_kwargs={
-            "remote_side": 'Comments.id',
-            "cascade": "all, delete-orphan",
-            "order_by": "desc(Comments.votes), desc(Comments.created_at)"
-        }
-    )
+    # replies: list["Comments"] = Relationship(
+    #     sa_relationship_kwargs={
+    #         "remote_side": 'Comments.id',
+    #         # "cascade": "all, delete-orphan",
+    #         "order_by": "desc(Comments.votes), desc(Comments.created_at)"
+    #     }
+    # )
 
 
 

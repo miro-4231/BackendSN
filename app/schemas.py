@@ -45,6 +45,7 @@ class VoteCreate(BaseModel):
 
 class Comment_in(BaseModel):
     content:str 
+    parent_id: int | None = None
 
 class Comment_edit(BaseModel):
     id: int
@@ -60,7 +61,6 @@ class Comment_out(BaseModel):
     parent_id: int | None = None
     is_deleted: bool = False
     author: User_out_min
-    replies: list["Comment_out"] = []
     votes: int
 
 class Token(BaseModel):
