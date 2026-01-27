@@ -82,7 +82,7 @@ async def create_posts(post: schemas.Post_in, current_user: Annotated[schemas.Us
     return new_post
 
 
-@router.put("/{id}", status_code=status.HTTP_200_OK, response_model=schemas.Post_out)
+@router.put("/{id}/edit", status_code=status.HTTP_200_OK, response_model=schemas.Post_out)
 async def update_post(post: schemas.Post_in, id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
     target_post = await session.get(model.Posts, id)
     if not target_post:
@@ -102,7 +102,7 @@ async def update_post(post: schemas.Post_in, id: int, current_user: Annotated[sc
     
     return target_post
 
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{id}/delete", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
     
     post_del = await session.get(model.Posts, id)
