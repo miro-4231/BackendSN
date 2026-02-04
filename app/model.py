@@ -59,13 +59,21 @@ class Users(SQLModel, table=True):
     
 class Votes(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", primary_key=True)
-    post_id: int = Field(foreign_key="posts.id", primary_key=True)
+    post_id: int | None = Field(default=None, foreign_key="posts.id", primary_key=True, ondelete="CASCADE")
+    comment_id: int | None = Field(default=None, foreign_key="comments.id", primary_key=True, ondelete="CASCADE")
     direction: int = Field(sa_type=SmallInteger)
     is_super: bool = Field(default=False)
     created_at : datetime = Field(
                 sa_column=Column(DateTime(timezone=True),
                 server_default=func.now(),
                 nullable=False))
+    __table_args__ = (
+        # Ensures that EITHER post_id is filled OR comment_id is filled, but not both/neither
+        CheckConstraint(
+            "(post_id IS NOT NULL AND comment_id IS NULL) OR (post_id IS NULL AND comment_id IS NOT NULL)",
+            name="check_vote_target"
+        ),
+    )
     
 class RefreshTokens(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -86,8 +94,8 @@ class Comments(SQLModel, table=True):
     id: int|None = Field(default=None, primary_key=True)
     content: str = Field(max_length=500)
     user_id:int = Field(foreign_key="users.id", index=True)
-    post_id: int = Field(foreign_key="posts.id", index=True)
-    parent_id: int|None = Field(foreign_key="comments.id", index=True)
+    post_id: int = Field(foreign_key="posts.id", ondelete="CASCADE", index=True)
+    parent_id: int|None = Field(foreign_key="comments.id", ondelete="CASCADE", index=True)
     votes:int = Field(default=0)
     is_deleted: bool = Field(default=False)
     created_at : datetime = Field(

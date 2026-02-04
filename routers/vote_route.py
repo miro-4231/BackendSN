@@ -25,7 +25,7 @@ async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
 
     
     # Check if user has already voted for this post
-    vote_target = await session.get(model.Votes, (current_user.id, post_id))
+    vote_target = await session.get(model.Votes, (current_user.id, post_id, None))
     if vote_target:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, 
