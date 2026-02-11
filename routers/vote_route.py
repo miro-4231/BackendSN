@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, HTTPException, Depends
-from sqlmodel import update
+from sqlmodel import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas, model, oauth2, utils
 from typing import Annotated
@@ -24,8 +24,12 @@ async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
         )
 
     
-    # Check if user has already voted for this post
-    vote_target = await session.get(model.Votes, (current_user.id, post_id, None))
+    statement = select(model.Votes).where(
+    model.Votes.user_id == current_user.id,
+    model.Votes.post_id == post_id
+)
+    result = await session.execute(statement)
+    vote_target = result.scalar_one_or_none()
     if vote_target:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, 
@@ -66,7 +70,8 @@ async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
         user_id=current_user.id, 
         post_id=post_id, 
         direction=vote_in.direction, 
-        is_super=vote_in.is_super
+        is_super=vote_in.is_super,
+        comment_id=None
     )
     session.add(new_vote)
     await session.commit()
@@ -85,7 +90,12 @@ async def delete_vote(post_id: int,
             detail=f"Post with id: {post_id} not found"
         )
     
-    vote_target = await session.get(model.Votes, (current_user.id, post_id))
+    statement = select(model.Votes).where(
+    model.Votes.user_id == current_user.id,
+    model.Votes.post_id == post_id
+    )
+    result = await session.execute(statement)
+    vote_target = result.scalar_one_or_none()
     if not vote_target:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 

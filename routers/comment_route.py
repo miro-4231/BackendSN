@@ -79,7 +79,7 @@ async def vote_comment(comment_id: int, vote_in: schemas.VoteCreate,
     # Check if post exists
     comment_target = await session.get(model.Comments, comment_id)
     
-    if not comment_target:
+    if not comment_target or comment_target.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail=f"comment with id: {comment_id} not found"
@@ -87,7 +87,12 @@ async def vote_comment(comment_id: int, vote_in: schemas.VoteCreate,
 
     
     # Check if user has already voted for this post
-    vote_target = await session.get(model.Votes, (current_user.id, None, comment_id))
+    statement = select(model.Votes).where(
+    model.Votes.user_id == current_user.id,
+    model.Votes.comment_id == comment_id
+    )
+    result = await session.execute(statement)
+    vote_target = result.scalar_one_or_none()
     if vote_target:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, 
@@ -133,6 +138,52 @@ async def vote_comment(comment_id: int, vote_in: schemas.VoteCreate,
     session.add(new_vote)
     await session.commit()
 
+@router.delete("/vote/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unvote_comment(comment_id: int,
+                    current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
+                    session: Annotated[AsyncSession, Depends(utils.get_db)]):
+
+    comment_target = await session.get(model.Comments, comment_id)
+    if not comment_target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"Comment with id: {comment_id} not found"
+        )
+    
+    statement = select(model.Votes).where(
+    model.Votes.user_id == current_user.id,
+    model.Votes.comment_id == comment_id
+    )
+    result = await session.execute(statement)
+    vote_target = result.scalar_one_or_none()
+    if not vote_target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Vote not found"
+        )
+    
+    # Calculate the change to reverse
+    multiplier = SUPER_VOTE_MULTIPLIER if vote_target.is_super else 1
+    change = vote_target.direction * multiplier
+    
+    # Atomic update to post votes
+    await session.execute(
+        update(model.Comments)
+        .where(model.Comments.id == comment_id)
+        .values(votes=model.Comments.votes - change)
+    )
+    
+    # Refund super vote if applicable
+    if vote_target.is_super:
+        await session.execute(
+            update(model.Users)
+            .where(model.Users.id == current_user.id)
+            .where(model.Users.super_vote_balance >= 0)
+            .values(super_vote_balance=model.Users.super_vote_balance + 1)
+        )
+    
+    await session.delete(vote_target)
+    await session.commit()
 
 @router.get("/{post_id}", status_code=status.HTTP_200_OK, response_model=List[schemas.Comment_out])
 async def get_comments(post_id:int, session:Annotated[AsyncSession, Depends(utils.get_db)],
