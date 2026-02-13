@@ -17,6 +17,7 @@ async def semantic_search(query_vector: list[float], session: AsyncSession, limi
     statement = (
         select(model.Posts)
         # Cosine distance: lower distance = higher similarity
+        .options(joinedload(model.Posts.author))
         .order_by(model.Posts.embedding.cosine_distance(query_vector))
         .limit(limit)
         .offset(offset)
@@ -47,8 +48,6 @@ async def get_hot_feed(current_user: Annotated[schemas.User_out, Depends(oauth2.
         .offset(offset)
         )
 
-        print(statement.compile(compile_kwargs={"literal_binds": True}))
-
         result = await session.execute(statement)
         posts = result.scalars().all()
         return posts
@@ -72,4 +71,13 @@ async def get_similar_feed(current_user: Annotated[schemas.User_out, Depends(oau
     
     return posts
 
-    
+@router.get('/personalized', status_code=status.HTTP_200_OK, response_model=List[schemas.Post_out])
+async def get_personalized_feed(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
+                        session: Annotated[AsyncSession, Depends(utils.get_db)], 
+                        limit: int = Query(default=10, le=100),
+                        offset: int = Query(default=0, le=1000)):
+    if current_user.embedding is None:
+        return await get_hot_feed(current_user, session, limit, offset)
+    posts = await semantic_search(current_user.embedding, session, limit, offset)
+    return posts
+

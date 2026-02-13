@@ -69,6 +69,11 @@ class Users(SQLModel, table=True):
                 server_default=func.now(),
                 nullable=False))
 
+    embedding: list[float] | None = Field(
+        default=None,
+        sa_column=Column(Vector(384), nullable=True)
+    )
+
     # The Python-side link back to the posts
     posts: list["Posts"] = Relationship(back_populates="author")
     comments: list["Comments"] = Relationship(back_populates="author")

@@ -15,6 +15,7 @@ class User_out(BaseModel):
     id: int 
     username: str = Field(max_length=18)
     created_at: datetime
+    embedding: list[float] | None = None
 
 class User_out_min(BaseModel):
     id: int 
