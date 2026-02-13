@@ -1,6 +1,7 @@
 from sqlmodel import Field, SQLModel, Index, SmallInteger, CheckConstraint, Relationship, UniqueConstraint
 from datetime import datetime
 from sqlalchemy import func, Column, DateTime
+from pgvector.sqlalchemy import Vector
 from pydantic import EmailStr
 from typing import TYPE_CHECKING, Optional
 
@@ -8,7 +9,7 @@ if TYPE_CHECKING:
     from .model import Posts, Users, Comments
 
 class Posts(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True) 
     title: str
     content: str
     author_id: int = Field(foreign_key="users.id", index=True)
@@ -29,6 +30,21 @@ class Posts(SQLModel, table=True):
             onupdate=func.now()
         ),
         default=None
+    )
+    embedding: list[float] | None = Field(
+        default=None,
+        sa_column=Column(Vector(384), nullable=True)
+    )
+    
+    __table_args__ = (
+        Index(
+            "posts_embedding_idx",        # Name of the index
+            "embedding",                  # Column to index
+            postgresql_using="hnsw",      # The algorithm
+            postgresql_ops={              # Essential for cosine similarity
+                "embedding": "vector_cosine_ops"
+            },
+        ),
     )
 
     # The Python-side link back to the user

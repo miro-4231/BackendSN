@@ -1,9 +1,9 @@
-from fastapi import FastAPI, status, HTTPException
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlmodel import Session, SQLModel, select, desc, update
+from sqlmodel import SQLModel
 from typing import List
-from app.db import engine
+from app.db import engine, initialize_vector_extension
 import app.utils as utils
 # import app.model as model
 # import app.schemas as schemas
@@ -14,6 +14,7 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
+        await initialize_vector_extension(engine)
         await conn.run_sync(SQLModel.metadata.create_all)
     # Startup
     scheduler.add_job(utils.cleanup_revoked_tokens, "interval", hours=24, id="cleanup_revoked")

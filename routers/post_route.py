@@ -1,7 +1,9 @@
 from fastapi import APIRouter, status, HTTPException, Query, Depends
+from asyncio import get_event_loop
 from sqlmodel import select, update, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+from app.encoder import encode_text
 from app import schemas, model, oauth2, utils
 from typing import List, Annotated
 
@@ -75,7 +77,12 @@ async def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out,
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post_out)
 async def create_posts(post: schemas.Post_in, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
-    new_post = model.Posts(title=post.title, content=post.content, author_id=current_user.id, published=post.published)
+    text_to_encode = f"Title: {post.title} | Content: {post.content}"
+
+    loop = get_event_loop()
+    embedding = await loop.run_in_executor(None, encode_text, text_to_encode)
+
+    new_post = model.Posts(title=post.title, content=post.content, author_id=current_user.id, published=post.published, embedding=embedding)
     session.add(new_post)
     await session.commit()
     await session.refresh(new_post)
@@ -92,6 +99,11 @@ async def update_post(post: schemas.Post_in, id: int, current_user: Annotated[sc
     
     post_data = post.model_dump(exclude_unset=True) # Get only the fields provided
     for key, value in post_data.items():
+        if key == "content":
+            text_to_encode = f"Title: {post.title} | Content: {post.content}"
+            loop = get_event_loop()
+            embedding = await loop.run_in_executor(None, encode_text, text_to_encode)
+            setattr(target_post, "embedding", embedding)
         setattr(target_post, key, value)
 
     # 3. Commit the changes
