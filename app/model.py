@@ -37,6 +37,7 @@ class Posts(SQLModel, table=True):
     )
     
     __table_args__ = (
+        {"postgresql_with": {"fillfactor": 70}},
         Index(
             "posts_embedding_idx",        # Name of the index
             "embedding",                  # Column to index
