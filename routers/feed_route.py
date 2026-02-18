@@ -27,6 +27,23 @@ async def semantic_search(query_vector: list[float], session: AsyncSession, limi
     # .scalars() returns the Post objects directly
     return result.scalars().all()
 
+async def get_hot_posts_query(session: AsyncSession, limit: int, offset: int):
+    # Move the score math here so both routes can use it
+    score_expression = (
+        func.log(func.greatest(func.abs(model.Posts.votes), 1)) +
+        (func.extract('epoch', model.Posts.created_at) - 1334845200) / 45000
+    ).label("hot_score")
+
+    statement = (
+        select(model.Posts)
+        .options(joinedload(model.Posts.author))
+        .order_by(score_expression.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(statement)
+    return result.scalars().all()
+
 router = APIRouter(prefix='/feed', tags=['Feed'])
 
 @router.get('/hot', status_code=status.HTTP_200_OK, response_model=List[schemas.Post_out])
@@ -71,13 +88,15 @@ async def get_similar_feed(current_user: Annotated[schemas.User_out, Depends(oau
     
     return posts
 
-@router.get('/personalized', status_code=status.HTTP_200_OK, response_model=List[schemas.Post_out])
-async def get_personalized_feed(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
-                        session: Annotated[AsyncSession, Depends(utils.get_db)], 
-                        limit: int = Query(default=10, le=100),
-                        offset: int = Query(default=0, le=1000)):
+@router.get('/personalized', response_model=List[schemas.Post_out])
+async def get_personalized_feed(
+    current_user: Annotated[model.User, Depends(oauth2.get_current_user)], # Use DB model
+    session: Annotated[AsyncSession, Depends(utils.get_db)],
+    limit: int = Query(10),
+    offset: int = Query(0)
+):
     if current_user.embedding is None:
-        return await get_hot_feed(current_user, session, limit, offset)
-    posts = await semantic_search(current_user.embedding, session, limit, offset)
-    return posts
-
+        return await get_hot_posts_query(session, limit, offset)
+        
+    # Ensure semantic_search also has joinedload(model.Posts.author)!
+    return await semantic_search(current_user.embedding, session, limit, offset)
