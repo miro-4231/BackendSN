@@ -78,7 +78,6 @@ class Users(SQLModel, table=True):
 
     __table_args__ = (
         CheckConstraint("super_vote_balance >= 0", name="check_super_vote_positive"),
-        {"postgresql_with": {"fillfactor": 70}}
     )
 
     
