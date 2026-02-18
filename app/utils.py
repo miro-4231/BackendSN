@@ -1,6 +1,7 @@
 from pwdlib import PasswordHash
 from sqlmodel import delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import update, case
 from app.db import async_session_factory
 from datetime import datetime, timezone
 from app import model
@@ -38,16 +39,20 @@ async def cleanup_expired_tokens():
             )
             await session.execute(statement)
 
-async def update_user_embedding(user_instance: model.Users, session: AsyncSession, content:str):
-    if user_instance.embedding is None:
-        user_instance.embedding = encode_text(content)
-    else:
-        user_instance.embedding = (
-            (1 - LEARNING_RATE) * array(user_instance.embedding) +
-            LEARNING_RATE * array(encode_text(content))
-        ).tolist()
-    session.add(user_instance)
-    await session.commit()
-    await session.refresh(user_instance)
+async def update_user_embedding(user_id: int, session: AsyncSession, content: str):
+    new_vector = encode_text(content) 
+    stmt = (
+        update(model.User)
+        .where(model.User.id == user_id)
+        .values(
+            embedding = case(
+                (model.User.embedding == None, new_vector),
+                else_ = (1 - LEARNING_RATE) * model.User.embedding + LEARNING_RATE * new_vector
+            )
+        )
+    )
+    
+    await session.execute(stmt)
+    await session.commit() # Save the changes
     
 
