@@ -56,9 +56,6 @@ class Posts(SQLModel, table=True):
     
 class Users(SQLModel, table=True):
 
-    __table_args__ = (
-        CheckConstraint("super_vote_balance >= 0", name="check_super_vote_positive"),
-    )
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, max_length=18, index=True)
@@ -80,8 +77,10 @@ class Users(SQLModel, table=True):
     comments: list["Comments"] = Relationship(back_populates="author")
 
     __table_args__ = (
+        CheckConstraint("super_vote_balance >= 0", name="check_super_vote_positive"),
         {"postgresql_with": {"fillfactor": 70}}
     )
+
     
 class Votes(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
