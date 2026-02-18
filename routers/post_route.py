@@ -76,14 +76,17 @@ async def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out,
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post_out)
-async def create_posts(post: schemas.Post_in, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
+async def create_posts(post: schemas.Post_in,
+                        background_tasks: BackgroundTasks,
+                        current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], 
+                        session: Annotated[AsyncSession, Depends(utils.get_db)]):
     text_to_encode = f"Title: {post.title} | Content: {post.content}"
 
     loop = get_event_loop()
     embedding = await loop.run_in_executor(None, encode_text, text_to_encode)
-
     new_post = model.Posts(title=post.title, content=post.content, author_id=current_user.id, published=post.published, embedding=embedding)
     session.add(new_post)
+    background_tasks.add_task(utils.update_user_embedding, current_user.id, embedding)
     await session.commit()
     await session.refresh(new_post)
     return new_post

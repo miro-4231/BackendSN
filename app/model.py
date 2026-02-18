@@ -78,6 +78,10 @@ class Users(SQLModel, table=True):
     # The Python-side link back to the posts
     posts: list["Posts"] = Relationship(back_populates="author")
     comments: list["Comments"] = Relationship(back_populates="author")
+
+    __table_args__ = (
+        {"postgresql_with": {"fillfactor": 70}}
+    )
     
 class Votes(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

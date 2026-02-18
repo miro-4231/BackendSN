@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi import APIRouter, status, HTTPException, Depends, BackgroundTasks
 from sqlmodel import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas, model, oauth2, utils
@@ -11,6 +11,7 @@ SUPER_VOTE_MULTIPLIER = 10
 
 @router.post("/{post_id}", status_code=status.HTTP_201_CREATED)
 async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
+                    background_tasks: BackgroundTasks,
                     current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
                     session: Annotated[AsyncSession, Depends(utils.get_db)]):
 
@@ -35,6 +36,9 @@ async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
             status_code=status.HTTP_409_CONFLICT, 
             detail="Already voted"
         )
+
+    if post_target.embedding:
+        background_tasks.add_task(utils.update_user_embedding, current_user.id, post_target.embedding)
 
     # Handle Super Vote Balance Check
     if vote_in.is_super:
