@@ -90,7 +90,7 @@ async def get_similar_feed(current_user: Annotated[schemas.User_out, Depends(oau
 
 @router.get('/personalized', response_model=List[schemas.Post_out])
 async def get_personalized_feed(
-    current_user: Annotated[model.User, Depends(oauth2.get_current_user)], # Use DB model
+    current_user: Annotated[model.Users, Depends(oauth2.get_current_user)], # Use DB model
     session: Annotated[AsyncSession, Depends(utils.get_db)],
     limit: int = Query(10),
     offset: int = Query(0)
