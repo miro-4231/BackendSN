@@ -37,7 +37,6 @@ class Posts(SQLModel, table=True):
     )
     
     __table_args__ = (
-        {"postgresql_with": {"fillfactor": 70}},
         Index(
             "posts_embedding_idx",        # Name of the index
             "embedding",                  # Column to index
@@ -46,13 +45,12 @@ class Posts(SQLModel, table=True):
                 "embedding": "vector_cosine_ops"
             },
         ),
+        Index("ix_posts_author_created", "author_id", "created_at"),
     )
 
     # The Python-side link back to the user
     author: "Users" = Relationship(back_populates="posts")
  
-    
-    __table_args__ = (Index("ix_posts_author_created", "author_id", "created_at"),)
     
 class Users(SQLModel, table=True):
 

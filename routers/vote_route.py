@@ -38,7 +38,7 @@ async def case_vote(post_id: int, vote_in: schemas.VoteCreate,
         )
 
     if post_target.embedding:
-        background_tasks.add_task(utils.update_user_embedding, current_user.id, post_target.embedding)
+        background_tasks.add_task(utils.run_background_update, current_user.id, post_target.embedding)
 
     # Handle Super Vote Balance Check
     if vote_in.is_super:

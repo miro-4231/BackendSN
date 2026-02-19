@@ -1,13 +1,11 @@
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi import status, HTTPException, Depends
 from datetime import datetime, timedelta, timezone
-from sqlmodel import select, update, desc
+from sqlmodel import select
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Annotated
-from pydantic import EmailStr
-from app import schemas, model
-from app.db import async_session_factory 
+from typing import Annotated
+from app import model
 from app import utils
 
 import jwt
@@ -133,11 +131,11 @@ async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], se
     if refresh_token is None or refresh_token.user_id != int(id):
         raise credentials_exception 
     
-    db_token = await session.execute(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti))
-    db_token = db_token.scalar_one_or_none()
-    if db_token:
-        db_token.is_revoked = True
-        session.add(db_token)
+    # db_token = await session.execute(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti))
+    # db_token = db_token.scalar_one_or_none()
+    if refresh_token:
+        refresh_token.is_revoked = True
+        session.add(refresh_token)
         await session.commit()
     
     return refresh_token.user_id

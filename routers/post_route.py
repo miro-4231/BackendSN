@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, HTTPException, Query, Depends, BackgroundTasks
-from asyncio import get_event_loop
-from sqlmodel import select, update, desc, or_
+from asyncio import get_running_loop
+from sqlmodel import select, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from app.encoder import encode_text
@@ -11,13 +11,11 @@ from typing import List, Annotated
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
 
-@router.get("/", response_model=List[schemas.Post_out])
-async def root(
-    current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], 
-    session: Annotated[AsyncSession, Depends(utils.get_db)],
-    limit: int = Query(default=10, gt=0, le=100, description="Maximum number of items to return"),
-    offset: int = Query(default=0, ge=0, description="Number of items to skip"),
-    search: str = Query(default="", description="Search term")):
+@router.get("/", response_model=List[schemas.Post_out], dependencies=[Depends(oauth2.get_current_user)])
+async def root(session: Annotated[AsyncSession, Depends(utils.get_db)],
+            limit: int = Query(default=10, gt=0, le=100, description="Maximum number of items to return"),
+            offset: int = Query(default=0, ge=0, description="Number of items to skip"),
+            search: str = Query(default="", description="Search term")):
     
     statement = select(model.Posts).filter(or_(model.Posts.content.like("%" + search + "%"), model.Posts.title.like("%" + search + "%")))\
         .options(joinedload(model.Posts.author)).offset(offset).limit(limit)
@@ -25,13 +23,13 @@ async def root(
     posts = result.scalars().all()
     return posts
 
-@router.get("/latest", response_model=schemas.Post_out)
-async def get_latest_post(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
+@router.get("/latest", response_model=schemas.Post_out, dependencies=[Depends(oauth2.get_current_user)])
+async def get_latest_post(session: Annotated[AsyncSession, Depends(utils.get_db)]):
     statement = select(model.Posts).order_by(desc(model.Posts.created_at))
     post_latest = await session.execute(statement)
     return post_latest.scalars().first()
 
-@router.get("/me", response_model=List[schemas.Post_out])
+@router.get("/me", response_model=List[schemas.Post_out], dependencies=[Depends(oauth2.get_current_user)])
 async def get_me_post(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)],
                     limit: int = Query(default=10, gt=0, le=100, description="Maximum number of items to return"),
                     offset: int = Query(default=0, ge=0, description="Number of items to skip")):
@@ -40,8 +38,8 @@ async def get_me_post(current_user: Annotated[schemas.User_out, Depends(oauth2.g
     posts = await session.execute(statement)
     return posts.scalars().all()
 
-@router.get("/{id}", response_model=schemas.Post_out)
-async def get_post_by_id(id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)]):
+@router.get("/{id}", response_model=schemas.Post_out, dependencies=[Depends(oauth2.get_current_user)])
+async def get_post_by_id(id: int, session: Annotated[AsyncSession, Depends(utils.get_db)]):
     statement = select(model.Posts).where(model.Posts.id == id)
     post = await session.execute(statement)
     post = post.scalar_one_or_none()
@@ -51,9 +49,8 @@ async def get_post_by_id(id: int, current_user: Annotated[schemas.User_out, Depe
                             detail=f'post with id: {id} not found.')
     return post
 
-@router.get("/user/{user_id}", response_model=List[schemas.Post_out])
-async def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
-                        session: Annotated[AsyncSession, Depends(utils.get_db)],
+@router.get("/user/{user_id}", response_model=List[schemas.Post_out], dependencies=[Depends(oauth2.get_current_user)])
+async def get_user_posts(user_id: int, session: Annotated[AsyncSession, Depends(utils.get_db)],
                         limit: int = Query(default=10, gt=0, le=100, description="Maximum number of items to return"),
                         offset: int = Query(default=0, ge=0, description="Number of items to skip")):
     # Check if user already exists
@@ -74,7 +71,6 @@ async def get_user_posts(user_id: int, current_user: Annotated[schemas.User_out,
     return posts
 
 
-
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.Post_out)
 async def create_posts(post: schemas.Post_in,
                         background_tasks: BackgroundTasks,
@@ -82,11 +78,11 @@ async def create_posts(post: schemas.Post_in,
                         session: Annotated[AsyncSession, Depends(utils.get_db)]):
     text_to_encode = f"Title: {post.title} | Content: {post.content}"
 
-    loop = get_event_loop()
+    loop = get_running_loop()
     embedding = await loop.run_in_executor(None, encode_text, text_to_encode)
     new_post = model.Posts(title=post.title, content=post.content, author_id=current_user.id, published=post.published, embedding=embedding)
     session.add(new_post)
-    background_tasks.add_task(utils.update_user_embedding, current_user.id, embedding)
+    background_tasks.add_task(utils.run_background_update, current_user.id, embedding)
     await session.commit()
     await session.refresh(new_post)
     return new_post
@@ -104,7 +100,7 @@ async def update_post(post: schemas.Post_in, id: int, current_user: Annotated[sc
     for key, value in post_data.items():
         if key == "content":
             text_to_encode = f"Title: {post.title} | Content: {post.content}"
-            loop = get_event_loop()
+            loop = get_running_loop()
             embedding = await loop.run_in_executor(None, encode_text, text_to_encode)
             setattr(target_post, "embedding", embedding)
         setattr(target_post, key, value)

@@ -13,7 +13,7 @@ REFRESH_TOKEN_EXPIRE_DAY = 7
 router = APIRouter(prefix="/auth", tags=["Authentification"])
 
 
-@router.post("/register", response_model=schemas.User_out)
+@router.post("/register", response_model=schemas.User_out_min)
 async def new_user(user: schemas.User_new, session: Annotated[AsyncSession, Depends(utils.get_db)]):
     # Check if user already exists
     existing_user = await session.execute(select(model.Users).where(model.Users.username == user.username))
@@ -83,7 +83,7 @@ async def refresh(
     
     return schemas.Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
-@router.get("/me", response_model=schemas.User_out)
+@router.get("/me", response_model=schemas.User_out_min)
 async def read_users_me(
     current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)],
 ):
@@ -115,7 +115,7 @@ async def logout(
     refresh_token = refresh_token.scalar_one_or_none()
     
     if refresh_token:
-        session.delete(refresh_token)
+        await session.delete(refresh_token)
         await session.commit()
 
 
