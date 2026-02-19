@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, Depends, Query
-from sqlmodel import update, select
-from sqlalchemy import func, text
+from sqlmodel import  select
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas, model, oauth2, utils

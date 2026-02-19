@@ -31,6 +31,7 @@ class Post_out(Post_in):
     author_id: int
     author: User_out_min
     votes: int
+    comments_count: int
     created_at: datetime
     
 class VoteCreate(BaseModel):

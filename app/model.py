@@ -3,10 +3,8 @@ from datetime import datetime
 from sqlalchemy import func, Column, DateTime
 from pgvector.sqlalchemy import Vector
 from pydantic import EmailStr
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
-if TYPE_CHECKING:
-    from .model import Posts, Users, Comments
 
 class Posts(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True) 

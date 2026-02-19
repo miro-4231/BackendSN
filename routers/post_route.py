@@ -29,7 +29,7 @@ async def get_latest_post(session: Annotated[AsyncSession, Depends(utils.get_db)
     post_latest = await session.execute(statement)
     return post_latest.scalars().first()
 
-@router.get("/me", response_model=List[schemas.Post_out], dependencies=[Depends(oauth2.get_current_user)])
+@router.get("/me", response_model=List[schemas.Post_out])
 async def get_me_post(current_user: Annotated[schemas.User_out, Depends(oauth2.get_current_user)], session: Annotated[AsyncSession, Depends(utils.get_db)],
                     limit: int = Query(default=10, gt=0, le=100, description="Maximum number of items to return"),
                     offset: int = Query(default=0, ge=0, description="Number of items to skip")):

@@ -92,11 +92,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], sessio
     )    
     try: 
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        id = int(payload.get("sub"))
+        id = payload.get("sub")
         type = payload.get("typ")
-        if type != "access": 
-            raise credentials_exception
         if id is None:
+            raise credentials_exception
+        id = int(id)
+        if type != "access": 
             raise credentials_exception
     except InvalidTokenError :
         raise credentials_exception
@@ -128,8 +129,7 @@ async def verify_refresh_token(token: Annotated[str, Depends(oauth2_scheme)], se
         await session.execute(statement)
         await session.commit()
         raise credentials_exception
-    if refresh_token is None or refresh_token.user_id != int(id):
-        raise credentials_exception 
+
     
     # db_token = await session.execute(select(model.RefreshTokens).where(model.RefreshTokens.jti == jti))
     # db_token = db_token.scalar_one_or_none()

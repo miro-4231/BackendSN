@@ -64,7 +64,6 @@ async def refresh(
     user_id: Annotated[int, Depends(oauth2.verify_refresh_token)],
     session: Annotated[AsyncSession, Depends(utils.get_db)]
 ) -> schemas.Token : 
-    print("jaja")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MIN)
     access_token = oauth2.create_access_token(
         data={"sub": str(user_id)}, expires_delta=access_token_expires
@@ -95,7 +94,6 @@ async def logout(
     session: Annotated[AsyncSession, Depends(utils.get_db)]
 ):
     try:
-        print(token)
         payload = oauth2.jwt.decode(token, oauth2.SECRET_KEY, algorithms=[oauth2.ALGORITHM])
         jti = payload.get("jti")
         token_type = payload.get("typ")
